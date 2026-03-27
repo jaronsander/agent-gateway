@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git rev-parse:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "TODAY=$(date +%Y-%m-%d); DIR='local-workspace/sessions'; cd \"$(git -C . rev-parse --show-toplevel 2>/dev/null || echo .)\" && ls $DIR/${TODAY}-*.md 2>/dev/null | grep -q . || echo 'ACTION REQUIRED: No session note exists for today. Create local-workspace/sessions/${TODAY}-HHmm-slug.md now, before writing more files.'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "REPO=$(git -C \"$(pwd)\" rev-parse --show-toplevel 2>/dev/null) && [ -n \"$REPO\" ] && cd \"$REPO\" && git add local-workspace/ && git diff --cached --quiet || git commit -m 'chore: auto-save session work [skip ci]' && git push origin HEAD --quiet 2>&1 || true"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "hookify@claude-plugins-official": true
+  }
+}
