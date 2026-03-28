@@ -1,6 +1,6 @@
 # Remote Gateway — Admin Reference
 
-The remote gateway is the organization's shared MCP server. It hosts promoted, QA-approved tools that every employee's AI agent can call. It also accumulates field definitions — the organization's source of truth for what each integration's data actually means.
+The remote gateway is the organization's shared MCP server. It hosts promoted, QA-approved tools that every operator's AI agent can call. It also accumulates field definitions — the organization's source of truth for what each integration's data actually means.
 
 Employees never see this directory. They sparse-checkout only `local-workspace/`.
 
@@ -10,8 +10,8 @@ Employees never see this directory. They sparse-checkout only `local-workspace/`
 
 Tool promotion is fully automated once a PR is merged. You do not manually copy code.
 
-1. **Employee R&D** — employee works locally, agent codifies a skill in `local-workspace/.claude/skills/<name>/`.
-2. **Auto-PR** — push to `employee/*` branch triggers `auto_pr.yml`, which opens a PR to main.
+1. **Employee R&D** — operator works locally, agent codifies a skill in `local-workspace/.claude/skills/<name>/`.
+2. **Auto-PR** — push to `operator/*` branch triggers `auto_pr.yml`, which opens a PR to main.
 3. **QA review** — `qa_agent_review.yml` posts a `✅ Passed` or `🛑 FAILED` comment. Read this before merging.
 4. **Merge** — you review the QA comment and merge.
 5. **Auto-promotion** — `auto_promote.yml` runs:
@@ -35,7 +35,7 @@ pip install -e .
 # Stdio (local testing)
 python remote-gateway/core/mcp_server.py
 
-# SSE (production — employees connect to this)
+# SSE (production — operators connect to this)
 MCP_TRANSPORT=sse python remote-gateway/core/mcp_server.py
 ```
 
@@ -58,7 +58,7 @@ Deploy target: any Python host — Railway, Fly.io, VPS, Docker. The server is a
 Every promoted tool wraps its response with `validated("integration", result)`. The field registry:
 - Checks the response against stored field definitions.
 - Flags unknown or changed fields in `_field_validation` without blocking the call.
-- Provides `lookup_field()`, `get_field_definitions()`, and `check_field_drift()` as gateway tools employees can call.
+- Provides `lookup_field()`, `get_field_definitions()`, and `check_field_drift()` as gateway tools operators can call.
 
 Field definitions live in `context/fields/<integration>.yaml`. They're copied there automatically on PR merge. You enrich them by filling in `description` and `notes` for each field — the auto-generated entries have `TODO` placeholders.
 
@@ -75,7 +75,7 @@ Update the YAML and redeploy to bring the registry back in sync.
 
 ## Optional: Proxying Integrations Through the Gateway
 
-For integrations that are mature and org-wide, you can move their credentials server-side so employees no longer need local API keys. The gateway connects to the upstream MCP at startup and re-exposes its tools as `<integration>__<tool_name>`.
+For integrations that are mature and org-wide, you can move their credentials server-side so operators no longer need local API keys. The gateway connects to the upstream MCP at startup and re-exposes its tools as `<integration>__<tool_name>`.
 
 Edit `mcp_connections.json`:
 
@@ -104,7 +104,7 @@ This is optional per integration. Local MCP connections remain the development p
 
 ## Optional: Access Policy
 
-For organizations that need governance over which MCPs employees can configure, Claude Code supports [`managed-mcp.json`](https://code.claude.com/docs/en/mcp#managed-mcp-configuration) deployed at the OS level on employee machines. Using Option 2 (allowlist/denylist), you can permit specific vendors while blocking others. This is an IT governance decision — not required for the gateway to function.
+For organizations that need governance over which MCPs operators can configure, Claude Code supports [`managed-mcp.json`](https://code.claude.com/docs/en/mcp#managed-mcp-configuration) deployed at the OS level on operator machines. Using Option 2 (allowlist/denylist), you can permit specific vendors while blocking others. This is an IT governance decision — not required for the gateway to function.
 
 ---
 

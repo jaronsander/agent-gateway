@@ -34,5 +34,5 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# MCP local overrides (employees may have personal MCP configs)
+# MCP local overrides (operators may have personal MCP configs)
 local-workspace/.mcp.local.json

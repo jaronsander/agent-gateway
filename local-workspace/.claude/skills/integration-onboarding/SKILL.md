@@ -10,7 +10,7 @@ description: >
 
 ## Business Problem
 
-When an employee wants to connect a new data source — a third-party MCP server
+When an operator wants to connect a new data source — a third-party MCP server
 (Stripe, HubSpot, Postgres) or a raw API — there is a standard sequence that
 must be followed to ensure field definitions are registered, the tool is
 properly codified, and the gateway can eventually take over the connection.
@@ -69,7 +69,7 @@ Once they have it:
 }
 ```
 
-The `${VAR_NAME}` syntax pulls from the employee's local `.env`. Never paste
+The `${VAR_NAME}` syntax pulls from the operator's local `.env`. Never paste
 a credential value directly into `.mcp.json`.
 
 Restart the MCP client so the new server is discovered.
@@ -173,10 +173,10 @@ Then invoke `@qa-pre-check` on the skill directory. Fix anything it flags before
 
 ### Step 6 — Commit and push
 
-Stage the skill directory and field definitions, then push to your employee branch:
+Stage the skill directory and field definitions, then push to your operator branch:
 
 ```bash
-BRANCH="employee/$(git config user.name | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
+BRANCH="operator/$(git config user.name | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
 git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
 
 git add local-workspace/.claude/skills/<integration>-<what>/
@@ -221,9 +221,9 @@ the local connection is no longer needed. Retire it:
    > local connection — you no longer need to manage credentials for it locally."
 
 3. **The local `.env` entry can stay** — it does no harm and may be useful if the
-   employee ever needs to test the integration directly. Do not delete it.
+   operator ever needs to test the integration directly. Do not delete it.
 
-4. **Commit the updated `.mcp.json`** to the employee branch so the change is tracked.
+4. **Commit the updated `.mcp.json`** to the operator branch so the change is tracked.
 
 The agent checks for retirement candidates automatically at session start by calling
 `list_field_integrations()` on the gateway and comparing against local `.mcp.json` entries.
@@ -232,7 +232,7 @@ The agent checks for retirement candidates automatically at session start by cal
 
 ## Dependencies
 
-- Write access to the employee's git branch (automatic via Claude Code).
+- Write access to the operator's git branch (automatic via Claude Code).
 - MCP server package (if MCP path) or API credentials (if raw API path).
 - `ANTHROPIC_API_KEY` set on the gateway server (for the auto-promote CI step).
 - `OPENAI_API_KEY` set in GitHub Secrets (for the QA agent CI step).

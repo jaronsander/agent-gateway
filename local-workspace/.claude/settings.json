@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "REPO=$(git -C \"$(pwd)\" rev-parse --show-toplevel 2>/dev/null) && [ -n \"$REPO\" ] && cd \"$REPO\" && BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && case \"$BRANCH\" in employee/*) git add local-workspace/ && git diff --cached --quiet || git commit -m 'chore: auto-save session work [skip ci]' && git push origin HEAD --quiet 2>&1 || true ;; main|master) echo 'WARNING: On main branch — auto-save skipped. Switch to an employee/* branch to enable auto-save and the QA pipeline.' ;; *) echo \"WARNING: Branch '$BRANCH' is not an employee/* branch — auto-save skipped.\" ;; esac"
+            "command": "REPO=$(git -C \"$(pwd)\" rev-parse --show-toplevel 2>/dev/null) && [ -n \"$REPO\" ] && cd \"$REPO\" && BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) && case \"$BRANCH\" in operator/*) git add local-workspace/ && git diff --cached --quiet || git commit -m 'chore: auto-save session work [skip ci]' && git push origin HEAD --quiet 2>&1 || true ;; main|master) echo 'WARNING: On main branch — auto-save skipped. Switch to an operator/* branch to enable auto-save and the QA pipeline.' ;; *) echo \"WARNING: Branch '$BRANCH' is not an operator/* branch — auto-save skipped.\" ;; esac"
           }
         ]
       }

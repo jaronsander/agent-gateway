@@ -21,7 +21,7 @@ def get_revenue(period="30d"):
 
 ## Docstrings
 
-Every function must have a docstring. This is not optional — the docstring becomes the MCP tool description that every employee's AI agent sees when the tool is promoted to the gateway. Write it for a non-technical user, not a developer.
+Every function must have a docstring. This is not optional — the docstring becomes the MCP tool description that every operator's AI agent sees when the tool is promoted to the gateway. Write it for a non-technical user, not a developer.
 
 Required format:
 ```python

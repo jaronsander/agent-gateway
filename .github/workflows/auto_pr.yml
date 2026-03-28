@@ -1,13 +1,13 @@
 name: Auto-Create PR from Employee Branch
 
-# Watches employee/* branches. When new tool, skill, or field definition files
+# Watches operator/* branches. When new tool, skill, or field definition files
 # are pushed, automatically opens a pull request to main so the QA agent can
 # review and the promotion pipeline can run on merge.
 
 on:
   push:
     branches:
-      - "employee/**"
+      - "operator/**"
     paths:
       - "local-workspace/.claude/skills/**"
       - "local-workspace/context/fields/**"
@@ -39,9 +39,9 @@ jobs:
         id: summary
         run: |
           BRANCH="${{ github.ref_name }}"
-          EMPLOYEE=$(echo "$BRANCH" | sed 's|employee/||')
+          EMPLOYEE=$(echo "$BRANCH" | sed 's|operator/||')
           TOOLS=$(git diff --name-only origin/main...HEAD -- 'local-workspace/.claude/skills/*/scripts/*.py' | xargs -I{} basename {} .py | tr '\n' ', ' | sed 's/,$//')
-          echo "employee=$EMPLOYEE" >> $GITHUB_OUTPUT
+          echo "operator=$EMPLOYEE" >> $GITHUB_OUTPUT
           echo "tools=$TOOLS" >> $GITHUB_OUTPUT
 
       - name: Create pull request
@@ -49,7 +49,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          EMPLOYEE="${{ steps.summary.outputs.employee }}"
+          EMPLOYEE="${{ steps.summary.outputs.operator }}"
           TOOLS="${{ steps.summary.outputs.tools }}"
           BRANCH="${{ steps.check_pr.outputs.branch }}"
 
