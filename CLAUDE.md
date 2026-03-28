@@ -4,6 +4,8 @@ This file provides guidance to Claude Code when working in this repository.
 
 # Agent Gateway — Monorepo
 
+Distributed agent work. Governed through middleware. One source of truth.
+
 Two isolated zones:
 
 - **`local-workspace/`** — Employee R&D sandbox. Employees sparse-checkout only this folder. Local AI agents connect to raw data sources, explore workflows, and codify them as skills.

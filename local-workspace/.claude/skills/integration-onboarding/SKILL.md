@@ -74,6 +74,8 @@ a credential value directly into `.mcp.json`.
 
 Restart the MCP client so the new server is discovered.
 
+> `--tools=all` is appropriate for initial exploration — you don't yet know which tools you'll need. As workflows are codified into gateway tools, the local MCP connection becomes redundant and should be retired (see "After Promotion" below).
+
 **Step A3 — Verify connection**
 
 Call any tool from the new MCP server to confirm it connects and returns data.
@@ -110,34 +112,14 @@ save the raw output.
 
 ---
 
-### Step 3 — Generate field definitions (local)
+### Step 3 — Generate field definitions
 
-Create `local-workspace/context/fields/<integration>.yaml` from your sample response.
-Use the template at `remote-gateway/context/fields/_template.yaml`.
+Invoke `@field-enricher` with the integration name and sample response. It will:
+- Fetch the vendor's API documentation for accurate definitions
+- Write business-meaningful descriptions to `context/integrations/<integration>/schema.md`
+- Create `context/fields/<integration>.yaml` for the gateway field registry
 
-For each field in the sample response:
-- Set `display_name` to the title-cased field name.
-- Set `description` to a clear business explanation of what the field means.
-  Use the integration's API documentation if available. Do not invent definitions.
-- Set `type` to the appropriate semantic type:
-  `string | number | currency_usd | percentage | boolean | timestamp | id | array | object`
-- Set `nullable: true` if the value can be null/absent.
-- Add `notes` for any calculation methodology or known caveats.
-
-```yaml
-integration: "<integration>"
-source_url: "<api_docs_url>"
-discovered_at: "<today>"
-last_drift_check: "<today>"
-
-fields:
-  field_name:
-    display_name: "Field Name"
-    description: "What this means to the business."
-    type: "string"
-    notes: ""
-    nullable: false
-```
+If you prefer to write definitions manually, use the template at `remote-gateway/context/fields/_template.yaml`. Every field needs a real `description` — no TODOs before committing.
 
 ---
 
@@ -171,10 +153,11 @@ description: >
 - Comprehensive docstring (becomes the MCP tool description on promotion).
 - Credentials via `os.environ` only.
 - Read-only by default.
+- Transform the output — return only the fields downstream agents need, with business-meaningful keys. The script should replace the raw API in context, not replicate it.
 
 ---
 
-### Step 5 — Test locally
+### Step 5 — Test and pre-check
 
 Run the script directly:
 
@@ -183,6 +166,8 @@ python .claude/skills/<integration>-<what>/scripts/<integration>_<what>.py
 ```
 
 Verify the output matches expectations and the field definitions are complete.
+
+Then invoke `@qa-pre-check` on the skill directory. Fix anything it flags before committing — it's faster than getting a 🛑 from CI after the PR is open.
 
 ---
 

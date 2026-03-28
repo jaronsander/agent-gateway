@@ -1,12 +1,54 @@
 # Agent Gateway
 
-> An agentic GitOps monorepo — local AI exploration, centralized governance.
+> Distributed agent work. Governed through middleware. One source of truth.
 
-Employees work in a personal sandbox with direct access to their data tools (Stripe, HubSpot, Snowflake, etc.). When a workflow proves valuable, the local agent codifies it and opens a pull request. A CI agent reviews it. On merge, the tool is automatically promoted into a shared **Remote Gateway** — a governed MCP server that every team member's AI agent connects to.
+As AI agents proliferate across a business, three problems compound fast: agents waste tokens on raw, unrefined context; every team re-solves the same problems independently; and the same data fields get interpreted differently by different agents and teams.
 
-The gateway grows over time into the organization's source of truth: what tools exist, what each field means, and how the business uses each integration.
+Agent Gateway is a GitOps monorepo that addresses all three. Employees explore data and workflows in personal sandboxes. Valuable work gets codified into tools and promoted to a shared gateway — a governed MCP server that accumulates the organization's business context: what tools exist, what each field means in your business, and how processes work. Every agent that connects to the gateway inherits that context instead of rebuilding it from scratch.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+---
+
+## Three Pillars
+
+### 1. Context efficiency through progressive codification
+
+Early in an integration's life, agents spend tokens on exploration: raw API calls, large data payloads, reflection, planning. This is expected and necessary. The goal is to not stay there.
+
+As an agent answers the same class of question repeatedly, it codifies the workflow: the API calls become a Python script that fetches and transforms data into a clean, purposeful shape. That script becomes a gateway tool. Future agents call the tool instead of the raw API — they receive exactly the fields they need, pre-labeled with business meaning, and nothing else.
+
+Over time, the cost per task falls. Context gets smaller and more precise. The tokens that used to go toward wrestling with raw data go toward the actual work.
+
+This is the core mechanic: **exploration → codification → refinement**. Every promoted tool is the organization learning something.
+
+### 2. Distributed agent work across teams
+
+Employees work independently in local sandboxes — no central bottleneck for exploration. Each employee's agent connects directly to the data sources they need and works freely. When a workflow proves valuable and repeatable, it flows upward through a pull request into the shared gateway, where it becomes available to every other agent in the org.
+
+The result is a distributed contribution model: many agents explore in parallel, the best work rises to shared infrastructure, and no single team carries the burden of building everything.
+
+> **Roadmap:** As teams and permission needs grow, access to gateway tools will be scopeable via per-team MCP keys. This is not implemented today but is a natural next step as the org grows.
+
+### 3. Governance and safety through middleware
+
+The gateway is not a direct API passthrough — it is middleware. Every promoted tool is QA-reviewed before merge, wrapped with a field validation layer on the gateway, and read-only by default. Mutating operations require explicit admin sign-off in the code review.
+
+The single mandatory human gate is the merge decision. Everything else — PR creation, QA review, tool injection, field registry updates — is automated. The admin reads a QA comment and decides. That's it.
+
+This model scales: a governance layer that requires no ongoing maintenance burden and applies uniformly to every tool, from every team, for every agent that connects.
+
+---
+
+## The Source of Truth
+
+The gateway's most important long-term output is not the tools — it's the context those tools carry.
+
+Every promoted tool wraps its response with a field validation layer. Field definitions live in `remote-gateway/context/fields/<integration>.yaml` and describe each data field not just technically (type, nullable) but semantically: what does `amount` mean in Stripe in your business? What does `stage` mean in your HubSpot pipeline? What does `arr` mean in your data warehouse, and how does your org calculate it?
+
+These definitions are written once, validated continuously, and shared with every agent that connects to the gateway. As more agents are layered onto the business — for analytics, operations, customer support, finance — they all inherit the same vocabulary. Nobody reinterprets the same field independently. Nobody builds on a stale definition.
+
+The gateway becomes the place the business goes to understand what its data means.
 
 ---
 
@@ -18,26 +60,27 @@ The gateway grows over time into the organization's source of truth: what tools 
 You ask your AI agent a question about revenue
         │
         ▼
-Agent calls Stripe MCP locally → fetches data → answers you
+Agent calls Stripe MCP locally → fetches raw data → answers you
         │
-        ▼  (if the query was complex or multi-step)
+        ▼  (if the query was complex, multi-step, or likely to recur)
 Agent creates a skill in .claude/skills/stripe-revenue/
-  └── SKILL.md         ← when/why to use this, becomes /stripe-revenue slash-command
-  └── scripts/get.py   ← the Python logic that will run on the gateway
+  └── SKILL.md         ← when/why to use this; becomes /stripe-revenue slash-command
+  └── scripts/get.py   ← Python logic that fetches + transforms data for clean context
         │
         ▼
-Agent tells you: "Codified and pushed for review."
+Agent tells you: "Codified into /stripe-revenue and pushed for review."
         │
         ▼  (background — you don't do anything)
-PR opens → QA agent reviews → you see a comment on the PR
+PR opens → QA agent reviews → structured comment posted on the PR
         │
-        ▼  (human: admin reviews QA comment and merges)
+        ▼  (human: admin reads QA comment and merges)
         │
         ▼  (background — you don't do anything)
-Tool promoted to shared gateway → all agents learn it
+Tool promoted to shared gateway → field definitions copied → all agents learn it
         │
         ▼
 You git pull → /stripe-revenue is now a shared slash-command for everyone
+               Next time someone asks about revenue, they skip the raw API entirely
 ```
 
 ### What happens automatically (no human needed)
@@ -89,7 +132,7 @@ agent-gateway/
 │   │   ├── field_registry.py     ← field definition loader and drift detector
 │   │   └── mcp_proxy.py          ← optional: proxies upstream MCPs server-side
 │   ├── context/
-│   │   └── fields/               ← per-integration field definition YAMLs
+│   │   └── fields/               ← per-integration field definition YAMLs (the source of truth)
 │   ├── mcp_connections.json      ← optional: upstream MCPs to proxy through gateway
 │   └── prompts/
 │       └── qa_agent_instructions.md
@@ -194,6 +237,8 @@ Edit `local-workspace/.mcp.json` to add the integrations you need locally:
 
 The `${STRIPE_API_KEY}` reference reads from your `.env` file. The gateway entry gives you access to all previously promoted tools.
 
+> **Context note:** `--tools=all` is appropriate for early exploration — you don't yet know which tools you'll need. As integrations mature and core workflows are codified into gateway tools, narrow or remove the local MCP connection. The goal over time is to replace broad raw-API access with targeted gateway tools that return clean, pre-labeled data.
+
 ### Open Claude Code
 
 Open the `local-workspace/` directory in Claude Code. The skills, hooks, and MCP config load automatically.
@@ -222,6 +267,7 @@ Use `/integration-onboarding`. It walks through finding the MCP package, adding 
 
 - **Local MCPs:** `list_tools` from your MCP client shows everything connected.
 - **Gateway tools:** Call `health_check()` and `list_field_integrations()` on the gateway.
+- **Field definitions:** Call `lookup_field("stripe", "amount")` to see what a field means in your business context.
 - **Your skills:** Type `/` in Claude Code to see all available slash-commands.
 
 ### After a PR is merged
@@ -238,7 +284,7 @@ New skills are immediately available as slash-commands. New promoted tools are a
 
 ### Stage 1 — Local exploration
 
-Employee works in `local-workspace/`. Agent uses local MCPs (direct API connections). Session notes capture discoveries. Nothing is shared yet — this is pure R&D.
+Employee works in `local-workspace/`. Agent uses local MCPs (direct API connections). This is the expensive phase: raw data in context, multiple tool calls, exploration of what fields and endpoints exist. Session notes capture discoveries. Nothing is shared yet — this is pure R&D.
 
 **Human action:** Configure `.mcp.json`, add credentials to `.env`.
 
@@ -246,9 +292,9 @@ Employee works in `local-workspace/`. Agent uses local MCPs (direct API connecti
 
 When a workflow proves valuable and repeatable, the agent creates a skill directory in `.claude/skills/<name>/`:
 - `SKILL.md` — when/why to use this, how to interpret output. Becomes a `/name` slash-command.
-- `scripts/<name>.py` — the Python logic. Type hints and docstring are required (the docstring becomes the MCP tool description after promotion).
+- `scripts/<name>.py` — the Python logic. The script fetches data and transforms it into a purposeful shape — returning only what downstream agents need, labeled with business meaning. Type hints and docstring are required (the docstring becomes the MCP tool description after promotion).
 
-The agent also updates `context/integrations/<name>/schema.md` with any field definitions discovered.
+The agent also updates `context/integrations/<name>/schema.md` with field definitions discovered during exploration.
 
 **Human action:** None. The agent does this.
 
@@ -294,36 +340,44 @@ On merge from an `employee/*` branch, `auto_promote.yml`:
 
 ### Stage 8 — Gateway active
 
-After the admin redeploys the gateway, the new tool is live. Every employee's agent can now call it.
+After the admin redeploys the gateway, the new tool is live. Every employee's agent can now call it — and receives pre-transformed, business-labeled data instead of raw API responses.
 
 **Human action:** Admin provisions env vars + redeploys.
 
 ### Stage 9 — Fleet sync
 
-Employees run `git pull`. The new `SKILL.md` is pulled into their workspace — the `/tool-name` slash-command is immediately available. Their agent can now route queries to the centralized gateway tool instead of their local MCP.
+Employees run `git pull`. The new `SKILL.md` is pulled into their workspace — the `/tool-name` slash-command is immediately available. Their agent can now route queries to the centralized gateway tool instead of the local MCP.
 
 **Human action:** Employee runs `git pull`.
 
-### Stage 10 — Optional: Retire local connection
+### Stage 10 — Retire local connection
 
-Once the gateway carries a promoted tool for an integration, the local MCP connection is redundant. The employee can remove that entry from `.mcp.json` to keep their workspace clean. The gateway version uses server-side credentials — the employee no longer needs a local API key for that integration.
+Once the gateway carries a promoted tool for an integration, the local MCP connection becomes redundant for that workflow. The employee removes that entry from `.mcp.json`. The gateway version uses server-side credentials and returns clean data — the employee no longer needs a local API key or raw tool access.
 
-**Human action:** Employee optionally cleans up `.mcp.json`.
+Over time, this is how context gets smaller: each promoted tool replaces a broad local connection with a targeted, purposeful one.
+
+**Human action:** Employee cleans up `.mcp.json`.
 
 ---
 
-## How the Gateway Grows: Field Registry and Data Definitions
+## The Field Registry: Building the Business Semantic Layer
 
-Beyond tools, the gateway accumulates **field definitions** — the organization's source of truth for what each integration's data actually means.
+Every promoted tool wraps its response with `validated("integration", result)`. Field definitions live in `context/fields/<integration>.yaml` and are the organization's semantic layer — not just schemas, but meaning:
 
-When a new integration is onboarded:
-1. The agent captures a sample API response.
-2. It creates `context/fields/<integration>.yaml` with inferred types and placeholder descriptions.
-3. On PR merge, these are copied to the gateway.
-4. The gateway's `discover_fields()` and `check_field_drift()` tools keep definitions current as APIs evolve.
-5. Every promoted tool wraps its response with `validated("integration", result)` — unknown or changed fields are flagged automatically without blocking the call.
+- What does `amount` mean in Stripe? Net, gross, before or after fees?
+- What does `stage` mean in HubSpot? How does your sales team define each value?
+- What does `arr` mean in your data warehouse? How is it calculated, and who owns the definition?
 
-Over time, these field definitions become the business's shared vocabulary: what `amount` means in Stripe, what `stage` means in HubSpot, what `arr` means in your data warehouse.
+These answers are written once during integration onboarding, refined as the business evolves, and shared with every agent that connects to the gateway. The field registry tools make definitions queryable:
+
+```python
+# Via MCP call to the gateway:
+lookup_field("stripe", "amount")           # → definition, type, business notes
+get_field_definitions("hubspot")           # → full schema for the integration
+check_field_drift("stripe", fresh_sample)  # → new_fields, removed_fields, unchanged
+```
+
+As more agents are layered onto the business — for analytics, operations, finance, customer support — they all inherit the same vocabulary. Nobody reinterprets the same field independently. Nobody builds on a stale definition.
 
 ---
 
@@ -348,6 +402,8 @@ Edit `remote-gateway/mcp_connections.json`:
 
 Set `STRIPE_API_KEY` on the gateway server, redeploy. The gateway now proxies all of Stripe's tools as `stripe__<tool_name>`. Employees remove their local Stripe MCP entry — the gateway handles it.
 
+> **Note:** Centralizing the raw MCP gives every employee access to all Stripe tools through the gateway. This is useful before custom tools exist. As integrations mature, the goal is to replace raw tool access with promoted, purpose-built tools that return clean data — so the raw proxy becomes less necessary over time.
+
 ---
 
 ## Optional: Access Policy
@@ -362,6 +418,7 @@ For organizations that need governance over which MCP servers employees can conf
 - **Docstrings are MCP descriptions.** Write them to be clear to non-technical users — they appear as tool descriptions in every AI agent connected to the gateway.
 - **No hardcoded credentials.** `os.environ` only.
 - **Read-only by default.** Mutating operations (POST, DELETE, INSERT, DROP) require explicit admin approval in the QA review.
+- **Transform, don't pass through.** Scripts should return purposeful data shapes, not raw API responses. Remove fields agents don't need. Add business labels. The goal is that the tool's output can go directly into agent context without noise.
 - **Linting:** `ruff` with line length 100.
 
 ```bash
