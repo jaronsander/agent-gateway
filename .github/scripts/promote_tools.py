@@ -1,32 +1,33 @@
 """
 promote_tools.py — AI-powered tool promotion script
 
-Called by auto_promote.yml after a merge to main. For each new Python tool
-in local-workspace/tools/, uses the Claude API to inject the function into
-remote-gateway/core/mcp_server.py with the correct @mcp.tool() decorator
-and validated() wrapper.
+Called by auto_promote.yml after a merge to main. For each new Python script
+in local-workspace/.claude/skills/<name>/scripts/, uses an LLM via OpenRouter
+to inject the function into remote-gateway/core/mcp_server.py with the correct
+@mcp.tool() decorator and validated() wrapper.
 
 Usage (called by GitHub Action):
-    python .github/scripts/promote_tools.py --changed-files "tools/a.py tools/b.py"
+    python .github/scripts/promote_tools.py --changed-files "path/a.py path/b.py"
 
 Environment variables required:
-    ANTHROPIC_API_KEY   — for the Claude promotion call
+    OPENROUTER_API_KEY   — for the LLM promotion call (via OpenRouter)
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from pathlib import Path
 
-import anthropic
+from openai import OpenAI
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 MCP_SERVER = REPO_ROOT / "remote-gateway" / "core" / "mcp_server.py"
 FIELDS_SRC = REPO_ROOT / "local-workspace" / "context" / "fields"
 FIELDS_DST = REPO_ROOT / "remote-gateway" / "context" / "fields"
-TOOLS_SRC = REPO_ROOT / "local-workspace" / "tools"
+SKILLS_ROOT = REPO_ROOT / "local-workspace" / ".claude" / "skills"
 
 PROMOTION_MARKER = "# Promoted tools go below this line."
 ENTRYPOINT_MARKER = "if __name__ == \"__main__\":"
@@ -36,7 +37,7 @@ You are an expert Python engineer promoting a locally-developed tool into a \
 centralized FastMCP gateway server.
 
 You will receive:
-1. A new Python tool function (from local-workspace/tools/).
+1. A new Python tool function (from a skill's scripts/ directory).
 2. The current contents of remote-gateway/core/mcp_server.py.
 3. The integration name the tool belongs to (e.g., "stripe", "hubspot").
 
@@ -57,64 +58,88 @@ no markdown fences, no commentary.
 """
 
 
-def infer_integration(tool_path: Path) -> str:
-    """Best-effort: derive integration name from filename or paired skill."""
-    stem = tool_path.stem  # e.g., "stripe_churn" → "stripe"
-    parts = stem.split("_")
-    candidate = parts[0]
+def infer_integration(script_path: Path) -> str:
+    """Derive integration name from the skill directory name or script filename.
+
+    Skill directories are named <integration>-<what> (e.g., 'stripe-churn').
+    Falls back to the first word of the script filename.
+
+    Args:
+        script_path: Path to the Python script inside a skill's scripts/ dir.
+
+    Returns:
+        Integration slug (e.g., "stripe").
+    """
+    # Walk up to find the skill directory (parent of scripts/)
+    skill_dir = script_path.parent.parent  # skills/<name>/scripts/<file>.py → skills/<name>/
+    skill_name = skill_dir.name  # e.g., "stripe-churn"
+    candidate = skill_name.split("-")[0]
 
     # Check if a matching field YAML exists
     if (FIELDS_SRC / f"{candidate}.yaml").exists():
         return candidate
 
-    # Fall back to the first word of the filename
     return candidate
 
 
-def promote_tool(tool_path: Path, client: anthropic.Anthropic) -> bool:
-    """Promote a single tool file into mcp_server.py using Claude."""
-    integration = infer_integration(tool_path)
-    tool_code = tool_path.read_text()
+def promote_tool(script_path: Path, client: OpenAI) -> bool:
+    """Promote a single script file into mcp_server.py using an LLM via OpenRouter.
+
+    Args:
+        script_path: Path to the Python script to promote.
+        client: Configured OpenAI client pointing at OpenRouter.
+
+    Returns:
+        True if promotion succeeded, False otherwise.
+    """
+    integration = infer_integration(script_path)
+    tool_code = script_path.read_text()
     server_code = MCP_SERVER.read_text()
 
     # Skip if function already exists in the server
     func_name = _extract_first_def(tool_code)
     if func_name and f"def {func_name}" in server_code:
-        print(f"  ↳ {tool_path.name}: already promoted (found def {func_name}), skipping.")
+        print(f"  ↳ {script_path.name}: already promoted (found def {func_name}), skipping.")
         return False
 
-    print(f"  ↳ Promoting {tool_path.name} (integration: {integration}) via Claude...")
+    print(f"  ↳ Promoting {script_path.name} (integration: {integration}) via OpenRouter...")
 
-    message = client.messages.create(
-        model="claude-opus-4-6",
-        max_tokens=8192,
-        system=SYSTEM_PROMPT,
+    response = client.chat.completions.create(
+        model="anthropic/claude-opus-4-6",
         messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
                 "content": (
                     f"Integration: {integration}\n\n"
-                    f"--- Tool file ({tool_path.name}) ---\n{tool_code}\n\n"
+                    f"--- Tool file ({script_path.name}) ---\n{tool_code}\n\n"
                     f"--- Current mcp_server.py ---\n{server_code}"
                 ),
-            }
+            },
         ],
     )
 
-    updated_server = message.content[0].text.strip()
+    updated_server = response.choices[0].message.content.strip()
 
     # Safety check: make sure the marker and entrypoint are still present
     if PROMOTION_MARKER not in updated_server or ENTRYPOINT_MARKER not in updated_server:
-        print(f"  ✗ Claude returned unexpected output for {tool_path.name} — skipping.")
+        print(f"  ✗ LLM returned unexpected output for {script_path.name} — skipping.")
         return False
 
     MCP_SERVER.write_text(updated_server)
-    print(f"  ✓ {tool_path.name} promoted successfully.")
+    print(f"  ✓ {script_path.name} promoted successfully.")
     return True
 
 
 def copy_field_yamls(changed_files: list[str]) -> list[str]:
-    """Copy field YAML files from local-workspace to remote-gateway."""
+    """Copy field YAML files from local-workspace to remote-gateway.
+
+    Args:
+        changed_files: List of changed file paths relative to repo root.
+
+    Returns:
+        List of copied field definition filenames.
+    """
     copied = []
     for f in changed_files:
         path = Path(f)
@@ -151,8 +176,6 @@ def extract_env_vars(code: str) -> list[str]:
     Returns:
         List of env var names (e.g., ["STRIPE_API_KEY", "STRIPE_WEBHOOK_SECRET"]).
     """
-    import re
-
     patterns = [
         r'os\.environ\.get\(["\'](\w+)["\']',   # os.environ.get("KEY")
         r'os\.environ\[["\'](\w+)["\']\]',       # os.environ["KEY"]
@@ -181,31 +204,38 @@ def main() -> None:
         print("  No new field definitions to copy.")
 
     print("\n=== Tool promotion ===")
-    tool_files = [
+    # Scripts live at: local-workspace/.claude/skills/<name>/scripts/<file>.py
+    script_files = [
         REPO_ROOT / f
         for f in changed
-        if f.startswith("local-workspace/tools/") and f.endswith(".py")
+        if "local-workspace/.claude/skills/" in f
+        and "/scripts/" in f
+        and f.endswith(".py")
     ]
 
-    if not tool_files:
-        print("  No new tool files to promote.")
+    if not script_files:
+        print("  No new skill scripts to promote.")
         sys.exit(0)
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
-        print("ERROR: ANTHROPIC_API_KEY is not set.")
+        print("ERROR: OPENROUTER_API_KEY is not set.")
         sys.exit(1)
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
+    )
+
     promoted = 0
     all_required_vars: list[str] = []
 
-    for tool_path in tool_files:
-        if tool_path.exists():
-            required_vars = extract_env_vars(tool_path.read_text())
+    for script_path in script_files:
+        if script_path.exists():
+            required_vars = extract_env_vars(script_path.read_text())
             if required_vars:
                 all_required_vars.extend(required_vars)
-            if promote_tool(tool_path, client):
+            if promote_tool(script_path, client):
                 promoted += 1
 
     all_required_vars = sorted(set(all_required_vars))

@@ -3,8 +3,7 @@ name: QA Agent Review
 on:
   pull_request:
     paths:
-      - "local-workspace/tools/**"
-      - "local-workspace/skills/**"
+      - "local-workspace/.claude/skills/**"
 
 permissions:
   contents: read
@@ -38,7 +37,7 @@ jobs:
       - name: Run QA Agent review
         id: qa
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           python - <<'PYEOF'
           import os
@@ -46,18 +45,20 @@ jobs:
 
           from openai import OpenAI
 
-          client = OpenAI()
+          client = OpenAI(
+              api_key=os.environ["OPENROUTER_API_KEY"],
+              base_url="https://openrouter.ai/api/v1",
+          )
 
           system_prompt = Path("remote-gateway/prompts/qa_agent_instructions.md").read_text()
           diff = Path("/tmp/pr_diff.txt").read_text()
 
           response = client.chat.completions.create(
-              model="gpt-4o",
+              model="anthropic/claude-opus-4-6",
               messages=[
                   {"role": "system", "content": system_prompt},
                   {"role": "user", "content": f"Review the following PR diff:\n\n```diff\n{diff}\n```"},
               ],
-              temperature=0.2,
           )
 
           review = response.choices[0].message.content

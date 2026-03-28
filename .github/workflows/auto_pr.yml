@@ -9,8 +9,7 @@ on:
     branches:
       - "employee/**"
     paths:
-      - "local-workspace/tools/**"
-      - "local-workspace/skills/**"
+      - "local-workspace/.claude/skills/**"
       - "local-workspace/context/fields/**"
 
 permissions:
@@ -41,7 +40,7 @@ jobs:
         run: |
           BRANCH="${{ github.ref_name }}"
           EMPLOYEE=$(echo "$BRANCH" | sed 's|employee/||')
-          TOOLS=$(git diff --name-only origin/main...HEAD -- 'local-workspace/tools/*.py' | xargs -I{} basename {} .py | tr '\n' ', ' | sed 's/,$//')
+          TOOLS=$(git diff --name-only origin/main...HEAD -- 'local-workspace/.claude/skills/*/scripts/*.py' | xargs -I{} basename {} .py | tr '\n' ', ' | sed 's/,$//')
           echo "employee=$EMPLOYEE" >> $GITHUB_OUTPUT
           echo "tools=$TOOLS" >> $GITHUB_OUTPUT
 
@@ -58,7 +57,7 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title "feat($EMPLOYEE): promote tool(s) — $TOOLS" \
-            --body "$(cat <<'EOF'
+            --body "$(cat <<EOF
 ## Automated PR from Employee Workspace
 
 **Employee:** $EMPLOYEE
@@ -68,9 +67,9 @@ This PR was created automatically by the agent gateway pipeline.
 The QA Agent will review this PR for safety, security, and quality.
 
 ### What happens on merge
-- Field definitions → `remote-gateway/context/fields/`
-- Tool functions → promoted into `remote-gateway/core/mcp_server.py` via Claude
-- Skills → available to all agents on `git pull`
+- Field definitions → \`remote-gateway/context/fields/\`
+- Tool functions → promoted into \`remote-gateway/core/mcp_server.py\` via Claude
+- Skills → available to all agents on \`git pull\`
 
 > Do not merge manually. Wait for the QA Agent review below.
 EOF

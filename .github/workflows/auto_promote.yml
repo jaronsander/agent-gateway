@@ -34,7 +34,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install anthropic pyyaml
+        run: pip install openai pyyaml
 
       - name: Get changed files from merged PR
         id: changed
@@ -48,7 +48,7 @@ jobs:
 
       - name: Run promotion script
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           python .github/scripts/promote_tools.py \
             --changed-files "${{ steps.changed.outputs.files }}"

@@ -45,15 +45,15 @@ mcp run remote-gateway/core/mcp_server.py
 ### Lifecycle: Local → Gateway
 
 1. **Local agent fetches data** using raw MCP connections (Stripe, Snowflake, CRM, etc.) configured in `local-workspace/.mcp.json`.
-2. **Incubation Loop** — if the answer required multi-step logic, the agent codifies it: writes a Python tool to `local-workspace/tools/` and a paired Markdown skill to `local-workspace/skills/`.
-3. **Auto-push** — agent commits the tool+skill pair to a `feature/<username>-<tool-name>` branch and pushes.
-4. **CI QA review** — `.github/workflows/qa_agent_review.yml` triggers on PRs touching `local-workspace/tools/**` or `local-workspace/skills/**`. A GPT-4o agent (using `remote-gateway/prompts/qa_agent_instructions.md`) reviews for safety (no mutations), security (no hardcoded secrets), type hint coverage, and docstring quality, then posts a structured comment.
-5. **Admin migration** — approved tools are copy-pasted into `remote-gateway/core/mcp_server.py` and decorated with `@mcp.tool()`. The existing docstring becomes the MCP tool description automatically.
-6. **Fleet update** — merged skills propagate via `git pull`, teaching all local agents to use the new centralized tool.
+2. **Incubation Loop** — if the answer required multi-step logic, the agent codifies it as a Claude Code skill directory at `local-workspace/.claude/skills/<name>/` containing a `SKILL.md` (frontmatter + instructions, becomes a `/slash-command`) and a `scripts/<name>.py` (the Python tool promoted to the gateway).
+3. **Auto-push** — agent commits the skill directory to an `employee/<username>` branch and pushes.
+4. **CI QA review** — `.github/workflows/qa_agent_review.yml` triggers on PRs touching `local-workspace/.claude/skills/**`. A Claude agent (via OpenRouter, using `remote-gateway/prompts/qa_agent_instructions.md`) reviews for safety, security, type hint coverage, and docstring quality, then posts a structured comment.
+5. **Auto-promotion** — on merge, `.github/workflows/auto_promote.yml` injects the script into `remote-gateway/core/mcp_server.py` with `@mcp.tool()`. The docstring becomes the MCP tool description automatically.
+6. **Fleet update** — merged skills propagate via `git pull`, teaching all local agents to use the new centralized tool via `/skill-name`.
 
-### Tool/Skill Pairing Rule
+### Skill/Script Pairing Rule
 
-Every Python tool in `local-workspace/tools/` must have a corresponding Markdown skill in `local-workspace/skills/`. Skills explain *when* and *why* to invoke the tool; tools are the executable code. This is enforced by the QA agent.
+Every Python script in `local-workspace/.claude/skills/<name>/scripts/` must have a `SKILL.md` sibling in the same skill directory. The skill explains *when* and *why* to invoke the tool; the script is the executable code. This is enforced by the QA agent.
 
 ### MCP Server Transports
 

@@ -1,3 +1,11 @@
+---
+name: integration-onboarding
+description: >
+  Connect a new data source (MCP server or raw API) to the local workspace.
+  Triggers when a user wants to pull data from a new system, when a tool-not-found
+  error occurs, or when the user asks about data in an unconnected system.
+---
+
 # Integration Onboarding Skill
 
 ## Business Problem
@@ -133,12 +141,32 @@ fields:
 
 ---
 
-### Step 4 — Write the tool
+### Step 4 — Create the skill directory
 
-Create `local-workspace/tools/<integration>_<what>.py` following the standard
-tool template (see `local-workspace/CLAUDE.md`).
+Create `.claude/skills/<integration>-<what>/` with two files:
 
-Requirements:
+**`SKILL.md`** — frontmatter + instructions:
+```markdown
+---
+name: <integration>-<what>
+description: >
+  One-line description of what this does and when Claude should invoke it.
+---
+
+## Business Problem
+<what business question this answers>
+
+## When to Trigger
+<conditions, keywords, or user intent signals>
+
+## How to Interpret Output
+<which fields matter, what thresholds mean>
+
+## Dependencies
+- MCP or env vars required: `<VAR_NAME>`
+```
+
+**`scripts/<integration>_<what>.py`** — the Python tool:
 - Type hints on all functions.
 - Comprehensive docstring (becomes the MCP tool description on promotion).
 - Credentials via `os.environ` only.
@@ -146,38 +174,27 @@ Requirements:
 
 ---
 
-### Step 5 — Write the skill
+### Step 5 — Test locally
 
-Create `local-workspace/skills/<integration>_<what>.md` covering:
-1. Business problem this tool solves.
-2. When to trigger it (conditions, keywords, user intent signals).
-3. How to interpret the output (which fields matter, what thresholds mean).
-4. Dependencies (which MCP or env vars are required).
-
----
-
-### Step 6 — Test locally
-
-Run the tool script directly:
+Run the script directly:
 
 ```bash
-python local-workspace/tools/<integration>_<what>.py
+python .claude/skills/<integration>-<what>/scripts/<integration>_<what>.py
 ```
 
 Verify the output matches expectations and the field definitions are complete.
 
 ---
 
-### Step 7 — Commit and push
+### Step 6 — Commit and push
 
-Stage all three files together and push to your employee branch:
+Stage the skill directory and field definitions, then push to your employee branch:
 
 ```bash
 BRANCH="employee/$(git config user.name | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
 git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
 
-git add local-workspace/tools/<integration>_<what>.py
-git add local-workspace/skills/<integration>_<what>.md
+git add local-workspace/.claude/skills/<integration>-<what>/
 git add local-workspace/context/fields/<integration>.yaml
 
 git commit -m "feat(integration): onboard <integration> — <what> tool"

@@ -4,6 +4,10 @@ Agent Gateway — Central MCP Server
 Hosts promoted, QA-approved tools as official MCP endpoints.
 All tools are read-only by default unless explicitly granted write permission.
 
+On startup, also proxies upstream MCP servers defined in mcp_connections.json,
+re-exposing their tools under the naming convention ``<integration>__<tool_name>``.
+Employees connect only to this gateway — no vendor credentials on their machines.
+
 Run with:
     python remote-gateway/core/mcp_server.py
     # or via mcp CLI:
@@ -12,15 +16,31 @@ Run with:
 
 from __future__ import annotations
 
+import asyncio
 import os
+from contextlib import asynccontextmanager
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
 from field_registry import registry
+from mcp_proxy import mount_all_proxies
+
+
+@asynccontextmanager
+async def lifespan(server: FastMCP):
+    """Start upstream MCP proxy connections on startup; clean up on shutdown."""
+    proxy_tasks = await mount_all_proxies(server)
+    yield
+    for task in proxy_tasks:
+        task.cancel()
+    if proxy_tasks:
+        await asyncio.gather(*proxy_tasks, return_exceptions=True)
+
 
 mcp = FastMCP(
     os.environ.get("MCP_SERVER_NAME", "[[ project_slug ]]"),
+    lifespan=lifespan,
 )
 
 

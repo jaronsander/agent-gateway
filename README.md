@@ -20,7 +20,7 @@ Local agent uses raw MCP tools (Stripe, Snowflake, CRM...)
 Codify → tools/<script>.py  +  skills/<name>.md
          │
          ▼
-Auto-push to feature/<username>-<tool-name> branch
+Auto-push to employee/<username> branch
          │
          ▼
 CI QA Agent reviews PR (safety · security · type hints · docstrings)
@@ -42,9 +42,9 @@ Click **"Use this template"** at the top of this page. You get a clean copy with
 
 After cloning your new repo:
 
-1. Replace `[[ gateway_url ]]` in `local-workspace/.mcp.json` with your deployed gateway URL.
-2. Copy `remote-gateway/.env.example` → `remote-gateway/.env` and fill in your keys.
-3. Add `OPENAI_API_KEY` to your repo's GitHub Secrets (used by the CI QA agent).
+1. Replace `[[ gateway_url ]]` in `local-workspace/.claude/.mcp.json` with your deployed gateway URL.
+2. Copy `local-workspace/.env.example` → `local-workspace/.env` and fill in your API keys.
+3. Add `OPENROUTER_API_KEY` to your repo's GitHub Secrets (used by the CI QA and auto-promote agents).
 4. Deploy the remote gateway (see below).
 
 ### Option 2 — copier (variable substitution + future sync)
@@ -83,11 +83,14 @@ copier update
 │
 ├── local-workspace/                # Employees sparse-checkout only this folder
 │   ├── .mcp.json                   # MCP server config (gateway URL + local MCPs)
-│   ├── AGENTS.md                   # Agent directives: incubation loop, auto-push
-│   ├── CLAUDE.md                   # Claude Code instructions for local agents
-│   ├── tools/                      # Python tools created by local agents
-│   ├── skills/                     # Markdown SOPs — when/why to use each tool
-│   ├── context/                    # Brand guidelines, templates, reference docs
+│   ├── .claude/
+│   │   ├── settings.json           # Claude Code permissions and hooks
+│   │   ├── skills/                 # Skills = slash commands + bundled scripts
+│   │   │   └── <name>/
+│   │   │       ├── SKILL.md        # Frontmatter + instructions (/name slash-command)
+│   │   │       └── scripts/        # Python tools (promoted to gateway on merge)
+│   │   └── agents/                 # Optional subagent definitions
+│   ├── context/                    # Brand guidelines, integration docs, field schemas
 │   └── sessions/                   # Per-session notes (committed for analysis)
 │
 ├── remote-gateway/                 # Admin-managed centralized gateway
@@ -120,7 +123,7 @@ git sparse-checkout set local-workspace
 git checkout main
 ```
 
-Then point their AI client (Claude Code, Cursor, etc.) at `local-workspace/.mcp.json` as the MCP config file.
+Claude Code automatically reads `local-workspace/.claude/.mcp.json` — no additional config needed. For other AI clients, point them at `local-workspace/.claude/.mcp.json` as the MCP config file.
 
 ---
 
@@ -171,12 +174,13 @@ These are personal and never committed (`.mcp.local.json` is gitignored for loca
 Local agent uses raw MCP connections to answer a business question.
 
 ### 2. Codify (Incubation Loop)
-If the answer required multiple tool calls or data cleaning, the agent writes:
-- `local-workspace/tools/<script>.py` — executable Python with type hints + docstring
-- `local-workspace/skills/<name>.md` — Markdown SOP: business problem, when to trigger, how to interpret output
+If the answer required multiple tool calls or data cleaning, the agent creates a skill directory:
+- `local-workspace/.claude/skills/<name>/SKILL.md` — frontmatter + instructions; becomes a `/name` slash-command
+- `local-workspace/.claude/skills/<name>/scripts/<script>.py` — executable Python with type hints + docstring; promoted to gateway on merge
 
 ### 3. Auto-Push
-Agent commits the tool+skill pair to `feature/<username>-<tool-name>` and pushes to GitHub.
+Agent commits the tool+skill pair to `employee/<username>` and pushes to GitHub.
+The branch prefix `employee/` is what triggers the CI pipeline — any other prefix is ignored.
 
 ### 4. CI QA Review
 `.github/workflows/qa_agent_review.yml` triggers on the auto-created PR and checks:

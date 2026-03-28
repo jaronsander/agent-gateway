@@ -32,9 +32,9 @@ When a user asks a question that requires data:
 
 1. **Fetch**: Use your available local MCP tools (Stripe, CRM, Snowflake, etc.) to retrieve the data.
 2. **Evaluate complexity**: If the answer required multiple tool calls, raw data cleaning, or non-trivial logic — do not just answer. Proceed to codification.
-3. **Create the Skill**: Create a directory at `.claude/skills/<name>/` with:
-   - `SKILL.md` — YAML frontmatter (`name`, `description`) + instructions for when and how to use this skill.
-   - `scripts/<name>.py` — The Python script that does the actual work. Include type hints and a comprehensive docstring (it becomes the MCP tool description on promotion). Run it locally to verify it works.
+3. **Codify — create a skill directory** in `.claude/skills/<integration>-<what>/`:
+   - `SKILL.md` — YAML frontmatter (`name`, `description`) + instructions: business problem, when to trigger, how to interpret output. This becomes a `/slash-command` Claude can call.
+   - `scripts/<integration>_<what>.py` — The Python script that fetches/processes the data. Type hints and comprehensive docstring required (the docstring becomes the MCP tool description on gateway promotion). Run it locally to verify it works.
 4. **Present**: Deliver the final synthesized answer to the user.
 
 If the query is simple and answered in a single tool call with clean output, skip codification — just answer directly.
@@ -62,7 +62,9 @@ You are working inside `local-workspace/`. The git repository root is one level 
 
 ```bash
 cd ..
-git checkout -b feature/<slug>-<tool-name>   # if not already on a feature branch
+# Branch must start with employee/ — this is what triggers the CI QA pipeline
+BRANCH="employee/$(git config user.name | tr ' ' '-' | tr '[:upper:]' '[:lower:]' 2>/dev/null || echo "$(whoami)")"
+git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
 git add local-workspace/
 git commit -m "feat: <description>"
 git push origin HEAD

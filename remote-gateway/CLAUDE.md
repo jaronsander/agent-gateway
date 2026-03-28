@@ -1,6 +1,28 @@
 # Remote Gateway
 
-This is the centralized MCP gateway — admin-managed infrastructure that hosts promoted, QA-approved tools as official MCP endpoints.
+This is the centralized MCP gateway — admin-managed infrastructure that hosts promoted, QA-approved tools as official MCP endpoints. The gateway grows over time as employee R&D is codified and promoted; it becomes the organization's source of truth for shared integrations.
+
+## How the Gateway Relates to Local MCPs
+
+Employees configure their own MCP servers locally (Stripe, HubSpot, Snowflake, etc.) during R&D. That is intentional and required — local connections are the exploration layer. When a workflow is codified and promoted to the gateway, the gateway takes over that integration and the local connection can optionally be retired.
+
+The local workspace always connects to the gateway (for promoted tools) alongside whatever local MCPs the employee is currently working with. Both are in `.mcp.json` at the same time.
+
+## Optional: Proxying Integrations Through the Gateway
+
+For integrations that are fully mature and org-wide, admins can add them to `mcp_connections.json` to proxy them through the gateway server-side. This means:
+- The gateway connects to the upstream MCP at startup using server-side env vars
+- The tools appear as `<integration>__<tool_name>` on the gateway
+- Employees can retire their local connection and use the gateway's copy instead
+- Credentials for that integration no longer need to be on employee machines
+
+This is opt-in per integration — not a hard requirement. See `mcp_connections.json` for the format.
+
+## Optional: Access Policy with Claude Code Managed MCP
+
+For organizations that want to govern which MCP servers employees can use, Claude Code supports policy-based control via [`managed-mcp.json`](https://code.claude.com/docs/en/mcp#managed-mcp-configuration). Using Option 2 (allowlist/denylist), admins can define approved MCP servers while still letting employees configure their own within those bounds. This is an IT governance decision and is not required for the gateway to function.
+
+---
 
 ## Migration Workflow
 
