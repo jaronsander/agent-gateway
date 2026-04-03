@@ -1,5 +1,5 @@
 [project]
-name = "[[ project_slug ]]"
+name = "inform-gateway"
 version = "0.1.0"
 description = "Agentic GitOps monorepo: local R&D sandbox + centralized MCP gateway"
 requires-python = ">=3.14"
@@ -15,6 +15,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "python-dotenv",
     "ruff",
 ]
 
